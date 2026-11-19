@@ -1456,3 +1456,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedTheme = localStorage.getItem('budget_tracker_theme') || 'light';
     applyTheme(savedTheme);
 });
+
+let deferredInstallPrompt = null;
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  // Prevent automatic mini-infobar on mobile/desktop so you control when to show UI
+  event.preventDefault();
+  deferredInstallPrompt = event;
+
+  // Optional: show your custom install button if you have one in HTML (e.g., id="installAppBtn")
+  const installBtn = document.getElementById("installAppBtn");
+  if (installBtn) {
+    installBtn.classList.remove("hidden");
+  }
+});
+
+async function installBudgetTrackerApp() {
+  if (!deferredInstallPrompt) return;
+
+  deferredInstallPrompt.prompt();
+  const { outcome } = await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+
+  const installBtn = document.getElementById("installAppBtn");
+  if (installBtn && outcome === "accepted") {
+    installBtn.classList.add("hidden");
+  }
+}
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  const installBtn = document.getElementById("installAppBtn");
+  if (installBtn) {
+    installBtn.classList.add("hidden");
+  }
+});

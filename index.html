@@ -6,10 +6,11 @@
     <title>Budget Tracker</title>
     
     <!-- Custom Favicon -->
-<!-- Custom Favicon -->
-<!-- Custom Favicon -->
-<!-- Custom Favicon -->
-    <link rel="icon" type="image/png" href="Glossy%20Gradient%20Fintech%20Monogram%20Logo.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="./icons/icon-192.png">
+
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#0D9488">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -517,5 +518,14 @@
 
     <!-- Central Script Logic Link -->
     <script src="app.js"></script>
+    <script>
+        if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("./sw.js").catch((err) => {
+            console.error("Service worker registration failed:", err);
+            });
+        });
+        }
+    </script>
 </body>
 </html>
