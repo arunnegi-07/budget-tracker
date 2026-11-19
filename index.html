@@ -13,6 +13,24 @@
     <meta name="theme-color" content="#0D9488">
 
     <link rel="stylesheet" href="./styles.css">
+    <script>
+        (function () {
+            try {
+                var savedTheme = localStorage.getItem('budget_tracker_theme') || 'light';
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                if (savedTheme === 'dark') {
+                    document.documentElement.style.backgroundColor = '#090D16';
+                    document.documentElement.style.colorScheme = 'dark';
+                }
+                var moonSvg = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>';
+                var sunSvg = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>';
+                window.addEventListener('DOMContentLoaded', function () {
+                    var el = document.getElementById('themeIconContainer');
+                    if (el) el.innerHTML = savedTheme === 'dark' ? moonSvg : sunSvg;
+                }, { once: true });
+            } catch (e) {}
+        })();
+    </script>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -147,12 +165,65 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
                     </svg>
                 </span>
+                <script>
+                if (document.documentElement.getAttribute('data-theme') === 'dark') {
+                    var el = document.getElementById('themeIconContainer');
+                    if (el) el.innerHTML = '<svg id="themeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>';
+                }
+                </script>
+                </script>
             </button>
         </div>
     </header>
 
-        <!-- Dynamic Views Container -->
+<!-- Dynamic Views Container -->
         <main class="flex-1 space-y-8 min-w-0">
+            <script>
+            (function () {
+            try {
+                var cached = JSON.parse(localStorage.getItem('budgetTracker_cache') || 'null');
+                if (!cached) return;
+
+                var now = new Date();
+                var ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+                var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                var labelKey = months[now.getMonth()] + ' ' + now.getFullYear();
+
+                var allowance = 0;
+                if (cached.allowances && typeof cached.allowances === 'object') {
+                allowance = parseFloat(cached.allowances[labelKey] ?? cached.allowances[ym] ?? 0) || 0;
+                }
+
+                var spent = 0;
+                if (Array.isArray(cached.transactions)) {
+                for (var i = 0; i < cached.transactions.length; i++) {
+                    var tx = cached.transactions[i];
+                    if (tx && tx.date && tx.date.indexOf(ym) === 0) {
+                    spent += parseFloat(tx.amount) || 0;
+                    }
+                }
+                }
+
+                var remaining = Math.max(0, allowance - spent);
+                var pct = allowance > 0 ? (spent / allowance) * 100 : 0;
+                var fmt = function (n) { return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2 }); };
+
+                var setText = function (id, val) {
+                var el = document.getElementById(id);
+                if (el) el.innerText = val;
+                };
+
+                setText('kpiAllowance', fmt(allowance));
+                setText('kpiSpent', fmt(spent));
+                setText('kpiRemaining', fmt(remaining));
+                setText('kpiRemainingPercent', allowance > 0 ? (Math.max(0, 100 - pct).toFixed(1) + '% Left') : '100.0% Left');
+                setText('kpiBudgetUsed', pct.toFixed(1) + '%');
+                setText('donutCenterTotal', fmt(spent));
+                setText('tableTotalSpend', fmt(spent));
+            } catch (_) {}
+            })();
+            </script>
+
             <!-- View 1: Visual Dashboard -->
             <div id="viewDashboard" class="space-y-8">
                 <div class="w-full max-w-[1850px] mx-auto px-3 sm:px-5 py-4 sm:py-6 xl:px-5 xl:py-6 xl:h-[calc(100vh-140px)] xl:overflow-hidden flex flex-col justify-between">    

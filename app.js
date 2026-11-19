@@ -163,7 +163,8 @@ function switchView(viewName, closeSidebar = true) {
         }
         renderMasterLog();
     } else if (viewName === 'dashboard') {
-        renderApp();
+        const chartsReady = Boolean(trendChartInstance && donutChartInstance);
+        renderApp({ animate: !chartsReady });
     }
 }
 
@@ -222,7 +223,7 @@ const API_KEY = "AIzaSyC4ne6GN9y7SMfMRjFBWMdV_yYMivcJqOQ";
 // Single API call to fetch Raw_Log, Allowances, and Categories_List simultaneously
 const BATCH_API_URL = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values:batchGet?ranges=Raw_Log&ranges=Allowances&ranges=Categories_List!D2:D50&key=${API_KEY}`;
 
-async function loadData() {
+async function loadData({ silentIfUnchanged = false } = {}) {
     console.log("Fetching complete live data from Master_Tracker...");
 
     try {
@@ -275,7 +276,7 @@ async function loadData() {
             .map(row => row[0] ? row[0].trim() : '')
             .filter(cat => cat !== '');
 
-        rawData = {
+        const nextData = {
             transactions: formattedTransactions,
             allowances: allowancesMap,
             categories: dynamicCategories.length > 0 ? dynamicCategories : [
@@ -286,24 +287,14 @@ async function loadData() {
             ]
         };
 
-        // Save to localStorage for instant offline fallback
-        localStorage.setItem('budgetTracker_cache', JSON.stringify(rawData));
-
-        // Render Dashboard
-        populateCategoryDropdown();
-        renderApp();
-        if (currentActiveView === 'masterLog') renderMasterLog();
+        applyIncomingData(nextData, { silentIfUnchanged: Boolean(silentIfUnchanged) });
 
         console.log("Complete Master_Tracker synced successfully!", rawData);
 
     } catch (err) {
         console.error("API fetch failed, falling back to cache:", err);
-        const cached = localStorage.getItem('budgetTracker_cache');
-        if (cached) {
-            rawData = JSON.parse(cached);
-            populateCategoryDropdown();
-            renderApp();
-            if (currentActiveView === 'masterLog') renderMasterLog();
+        if (!rawData || !Array.isArray(rawData.transactions) || rawData.transactions.length === 0) {
+            hydrateFromCache();
         }
     }
 }
@@ -569,12 +560,11 @@ function selectScopeAllTime() {
     }
 }
 
-function renderTrendChart(monthlyTx, yearStr, monthNumStr) {
+function renderTrendChart(monthlyTx, yearStr, monthNumStr, animate = true) {
     const canvasEl = document.getElementById('trendChart');
     if (!canvasEl) return;
     const ctx = canvasEl.getContext('2d');
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    
+
     const year = parseInt(yearStr, 10);
     const monthIdx = parseInt(monthNumStr, 10) - 1;
     const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
@@ -638,6 +628,7 @@ function renderTrendChart(monthlyTx, yearStr, monthNumStr) {
             }]
         },
         options: {
+            animation: animate ? undefined : false,
             responsive: true,
             maintainAspectRatio: false,
             interaction: {
@@ -689,7 +680,8 @@ function renderTrendChart(monthlyTx, yearStr, monthNumStr) {
 }
 
 // --- Render Dashboard ---
-function renderApp() {
+function renderApp(options = { animate: true }) {
+    const shouldAnimate = options && options.animate !== undefined ? options.animate : true;
     initDashboardMonthSelector(rawData.transactions, rawData.allowances);
     
     const isAllTime = (selectedDashboardMonth === 'all');
@@ -809,13 +801,13 @@ function renderApp() {
         }
     }
 
-    renderDonutChart(monthlySortedCats, totalAllowance, monthlyRemaining);
-    renderTrendChart(monthlyTx, targetYear, targetMonthNum);
+    renderDonutChart(monthlySortedCats, totalAllowance, monthlyRemaining, shouldAnimate);
+    renderTrendChart(monthlyTx, targetYear, targetMonthNum, shouldAnimate);
     renderRecentTransactions(monthlyTx);
 }
 
 // --- Render Donut Chart ---
-function renderDonutChart(sortedCategories, totalAllowance, remainingBalance) {
+function renderDonutChart(sortedCategories, totalAllowance, remainingBalance, animate = true) {
     const canvasEl = document.getElementById('donutChart');
     if (!canvasEl) return;
     const ctx = canvasEl.getContext('2d');
@@ -866,6 +858,7 @@ function renderDonutChart(sortedCategories, totalAllowance, remainingBalance) {
             }]
         },
         options: {
+            animation: animate ? undefined : false,
             responsive: true,
             maintainAspectRatio: false,
             cutout: '64%',
@@ -897,6 +890,25 @@ function renderDonutChart(sortedCategories, totalAllowance, remainingBalance) {
     }
 }
 
+function getActiveDashboardScope() {
+    const isAllTime = (selectedDashboardMonth === 'all');
+    const targetMonthKey = selectedDashboardMonth || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+
+    let targetYear = String(new Date().getFullYear());
+    let targetMonthNum = String(new Date().getMonth() + 1).padStart(2, '0');
+    if (!isAllTime) {
+        const parts = targetMonthKey.split('-');
+        targetYear = parts[0];
+        targetMonthNum = parts[1];
+    }
+
+    const monthlyTx = isAllTime
+        ? (rawData.transactions || [])
+        : (rawData.transactions || []).filter(tx => tx.date && tx.date.startsWith(targetMonthKey));
+
+    return { monthlyTx, targetYear, targetMonthNum };
+}
+
 function setTrendMode(mode) {
     currentTrendMode = mode;
     const btnDaily = document.getElementById('btnTrendDaily');
@@ -911,7 +923,8 @@ function setTrendMode(mode) {
     if (subtitle) {
         subtitle.innerText = mode === 'daily' ? 'Daily outflow across the month' : 'Running cumulative spend toward monthly cap';
     }
-    renderApp();
+    const { monthlyTx, targetYear, targetMonthNum } = getActiveDashboardScope();
+    renderTrendChart(monthlyTx, targetYear, targetMonthNum, true);
 }
 
 let masterLogScope = 'current';
@@ -1281,22 +1294,90 @@ function resetExplorer() {
     }, 250);
 }
 
-window.onload = function() {
-    const cachedData = localStorage.getItem('budgetTracker_cache');
-    if (cachedData) {
-        try {
-            rawData = JSON.parse(cachedData);
+function getDataSignature(data) {
+    if (!data || typeof data !== 'object') return '';
+    return JSON.stringify({
+        allowances: data.allowances || {},
+        categories: data.categories || [],
+        transactions: data.transactions || []
+    });
+}
+
+function getDataSignature(data) {
+    if (!data || typeof data !== 'object') return '';
+    return JSON.stringify({
+        allowances: data.allowances || {},
+        categories: data.categories || [],
+        transactions: data.transactions || []
+    });
+}
+
+function hydrateFromCache() {
+    try {
+        const rawCached = localStorage.getItem('budgetTracker_cache');
+        if (!rawCached) return false;
+        const parsed = JSON.parse(rawCached);
+        if (!parsed || typeof parsed !== 'object') return false;
+        rawData = parsed;
+        if (typeof populateCategoryDropdown === 'function') {
             populateCategoryDropdown();
-            renderApp();
-            if (currentActiveView === 'masterLog') {
-                renderMasterLog();
-            }
-        } catch (e) {
-            console.error("Cache parsing error:", e);
         }
+        renderApp({ animate: false });
+        if (typeof currentActiveView !== 'undefined' && currentActiveView === 'masterLog' && typeof renderMasterLog === 'function') {
+            renderMasterLog();
+        }
+        return true;
+    } catch (err) {
+        console.error('Cache hydration failed:', err);
+        return false;
     }
-    loadData();
-};
+}
+
+function applyIncomingData(nextData, { silentIfUnchanged = false } = {}) {
+    if (!nextData || typeof nextData !== 'object') return false;
+    const prevSig = getDataSignature(rawData);
+    const nextSig = getDataSignature(nextData);
+
+    if (silentIfUnchanged && prevSig && prevSig === nextSig) {
+        return false;
+    }
+
+    rawData = nextData;
+    try {
+        localStorage.setItem('budgetTracker_cache', JSON.stringify(nextData));
+    } catch (err) {
+        console.error('Cache write failed:', err);
+    }
+
+    if (typeof populateCategoryDropdown === 'function') {
+        populateCategoryDropdown();
+    }
+
+    const animate = !silentIfUnchanged || !prevSig;
+    renderApp({ animate });
+
+    if (typeof currentActiveView !== 'undefined' && currentActiveView === 'masterLog' && typeof renderMasterLog === 'function') {
+        renderMasterLog();
+    }
+    return true;
+}
+
+function bootBudgetTracker() {
+    const savedTheme = localStorage.getItem('budget_tracker_theme') || 'light';
+    if (typeof applyTheme === 'function') {
+        applyTheme(savedTheme, false);
+    }
+    const hadCache = hydrateFromCache();
+    if (typeof loadData === 'function') {
+        loadData({ silentIfUnchanged: hadCache });
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootBudgetTracker, { once: true });
+} else {
+    bootBudgetTracker();
+}
 
 function downloadCSV(filename, rows) {
     let csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.map(val => {
@@ -1432,21 +1513,80 @@ const themeIcons = {
     dark: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>'
 };
 
-function applyTheme(themeName) {
+function updateChartsTheme() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+    if (trendChartInstance) {
+        trendChartInstance.options.animation = false;
+        if (trendChartInstance.options.scales?.x?.ticks) {
+            trendChartInstance.options.scales.x.ticks.color = isDark ? '#94A3B8' : '#64748B';
+        }
+        if (trendChartInstance.options.scales?.y?.ticks) {
+            trendChartInstance.options.scales.y.ticks.color = isDark ? '#94A3B8' : '#64748B';
+        }
+        if (trendChartInstance.options.scales?.y?.grid) {
+            trendChartInstance.options.scales.y.grid.color = isDark ? 'rgba(148, 163, 184, 0.12)' : '#F1F5F9';
+        }
+        trendChartInstance.update('none');
+    }
+
+    if (donutChartInstance) {
+        donutChartInstance.options.animation = false;
+        const ds = donutChartInstance.data.datasets[0];
+        if (ds) {
+            ds.borderColor = isDark ? '#111827' : '#ffffff';
+            const remIdx = donutChartInstance.data.labels.indexOf('Remaining Budget');
+            if (remIdx !== -1 && Array.isArray(ds.backgroundColor)) {
+                ds.backgroundColor[remIdx] = isDark ? '#1E293B' : '#ECFDF5';
+            }
+        }
+        donutChartInstance.update('none');
+    }
+}
+
+function applyTheme(themeName, animate = true) {
+    const root = document.documentElement;
+
+    if (animate) {
+        root.classList.add('theme-switching');
+    }
+
     localStorage.setItem('budget_tracker_theme', themeName);
-    document.documentElement.setAttribute('data-theme', themeName);
+    root.setAttribute('data-theme', themeName);
+    root.style.backgroundColor = themeName === 'dark' ? '#090D16' : '';
+    root.style.colorScheme = themeName === 'dark' ? 'dark' : 'light';
+
     const container = document.getElementById('themeIconContainer');
     if (container) {
-        container.style.transform = 'scale(0) rotate(-45deg)';
-        container.style.opacity = '0';
-        setTimeout(() => {
-            container.innerHTML = themeIcons[themeName] || themeIcons['light'];
+        const nextIcon = themeIcons[themeName] || themeIcons['light'];
+        if (!animate) {
+            container.style.transition = 'none';
+            container.innerHTML = nextIcon;
             container.style.transform = 'scale(1) rotate(0deg)';
             container.style.opacity = '1';
-        }, 150);
+            requestAnimationFrame(() => {
+                container.style.transition = '';
+            });
+        } else {
+            container.style.transform = 'scale(0) rotate(-45deg)';
+            container.style.opacity = '0';
+            setTimeout(() => {
+                container.innerHTML = nextIcon;
+                container.style.transform = 'scale(1) rotate(0deg)';
+                container.style.opacity = '1';
+            }, 150);
+        }
     }
-    if (typeof renderApp === 'function' && rawData) {
-        renderApp();
+
+    updateChartsTheme();
+
+    if (animate) {
+        void root.offsetHeight;
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                root.classList.remove('theme-switching');
+            });
+        });
     }
 }
 
@@ -1454,12 +1594,12 @@ function cycleTheme() {
     const currentTheme = localStorage.getItem('budget_tracker_theme') || 'light';
     const currentIndex = themes.indexOf(currentTheme);
     const nextIndex = (currentIndex + 1) % themes.length;
-    applyTheme(themes[nextIndex]);
+    applyTheme(themes[nextIndex], true);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     const savedTheme = localStorage.getItem('budget_tracker_theme') || 'light';
-    applyTheme(savedTheme);
+    applyTheme(savedTheme, false);
 });
 
 window.addEventListener('scroll', () => {

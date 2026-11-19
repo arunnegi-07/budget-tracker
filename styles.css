@@ -7,6 +7,14 @@
   --border-color: #E2E8F0;
 }
 
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
 html[data-theme="dark"] {
   --bg-canvas: #090D16;
   --bg-card: #111827;
@@ -126,4 +134,25 @@ html[data-theme="dark"] header {
 html[data-theme="dark"] #appHeader {
   background-color: var(--bg-canvas);
   border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+/* Master Log mobile cards & text contrast in dark mode */
+html[data-theme="dark"] #masterLogCardListMobile > div {
+  background-color: var(--bg-subtle, #1A2234) !important;
+  border-color: var(--border-color, #1F2937) !important;
+  color: var(--text-primary, #F1F5F9) !important;
+}
+
+html[data-theme="dark"] #masterLogCardListMobile .text-brand-slate {
+  color: var(--text-primary, #F1F5F9) !important;
+}
+
+html[data-theme="dark"] #masterLogCardListMobile .text-brand-charcoal,
+html[data-theme="dark"] #masterLogCardListMobile p {
+  color: var(--text-secondary, #94A3B8) !important;
+}
+
+html[data-theme="dark"] #masterLogCardListMobile .border-brand-border\/60 {
+  border-color: rgba(148, 163, 184, 0.16) !important;
+
 }
