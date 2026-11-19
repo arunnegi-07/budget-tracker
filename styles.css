@@ -1,1 +1,129 @@
+:root {
+  --bg-canvas: #F1F5F9;
+  --bg-card: #FFFFFF;
+  --bg-subtle: #F8FAFC;
+  --text-primary: #0F172A;
+  --text-secondary: #64748B;
+  --border-color: #E2E8F0;
+}
 
+html[data-theme="dark"] {
+  --bg-canvas: #090D16;
+  --bg-card: #111827;
+  --bg-subtle: #1A2234;
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --border-color: #1F2937;
+  color-scheme: dark;
+}
+
+/* Base surfaces & text */
+html[data-theme="dark"] body,
+html[data-theme="dark"] .bg-brand-canvas {
+  background-color: var(--bg-canvas) !important;
+  color: var(--text-primary) !important;
+}
+
+html[data-theme="dark"] .bg-white,
+html[data-theme="dark"] .bg-brand-card {
+  background-color: var(--bg-card) !important;
+  color: var(--text-primary) !important;
+}
+
+html[data-theme="dark"] .bg-slate-100,
+html[data-theme="dark"] .bg-slate-50 {
+  background-color: var(--bg-subtle) !important;
+}
+
+/* Borders */
+html[data-theme="dark"] .border-brand-border,
+html[data-theme="dark"] .border-slate-100,
+html[data-theme="dark"] .border-slate-200\/85 {
+  border-color: var(--border-color) !important;
+}
+
+html[data-theme="dark"] .divide-brand-border > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--border-color) !important;
+}
+
+/* Typography */
+html[data-theme="dark"] .text-brand-slate,
+html[data-theme="dark"] .text-slate-900 {
+  color: var(--text-primary) !important;
+}
+
+html[data-theme="dark"] .text-brand-charcoal,
+html[data-theme="dark"] .text-slate-600,
+html[data-theme="dark"] .text-slate-400 {
+  color: var(--text-secondary) !important;
+}
+
+/* Soft tinted icon/status badges & insight box */
+html[data-theme="dark"] .bg-teal-50 {
+  background-color: rgba(13, 148, 136, 0.16) !important;
+  color: #5EEAD4 !important;
+}
+
+html[data-theme="dark"] .bg-rose-50 {
+  background-color: rgba(244, 63, 94, 0.15) !important;
+  color: #FDA4AF !important;
+}
+
+html[data-theme="dark"] .bg-emerald-50,
+html[data-theme="dark"] .bg-emerald-100 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #6EE7B7 !important;
+}
+
+html[data-theme="dark"] .bg-indigo-50 {
+  background-color: rgba(99, 102, 241, 0.16) !important;
+  color: #A5B4FC !important;
+}
+
+html[data-theme="dark"] .bg-sky-50\/80 {
+  background-color: rgba(14, 165, 233, 0.12) !important;
+  border-color: rgba(56, 189, 248, 0.22) !important;
+  color: #E2E8F0 !important;
+}
+
+/* Month picker drum fade gradients */
+html[data-theme="dark"] #monthDropdownMenu .bg-gradient-to-b {
+  background-image: linear-gradient(to bottom, #111827, rgba(17, 24, 39, 0.8), transparent) !important;
+}
+
+html[data-theme="dark"] #monthDropdownMenu .bg-gradient-to-t {
+  background-image: linear-gradient(to top, #111827, rgba(17, 24, 39, 0.8), transparent) !important;
+}
+
+/* Form controls */
+html[data-theme="dark"] input,
+html[data-theme="dark"] select {
+  background-color: var(--bg-subtle) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Hover states */
+html[data-theme="dark"] .hover\:bg-brand-canvas:hover,
+html[data-theme="dark"] .hover\:bg-brand-canvas\/60:hover {
+  background-color: var(--bg-subtle) !important;
+}
+
+html[data-theme="dark"] .hover\:text-brand-slate:hover {
+  color: var(--text-primary) !important;
+}
+
+html[data-theme="dark"] header {
+  background-color: var(--bg-canvas) !important;
+}
+
+#appHeader {
+  background-color: var(--bg-canvas);
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="dark"] #appHeader {
+  background-color: var(--bg-canvas);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}

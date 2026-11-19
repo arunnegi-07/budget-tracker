@@ -573,7 +573,8 @@ function renderTrendChart(monthlyTx, yearStr, monthNumStr) {
     const canvasEl = document.getElementById('trendChart');
     if (!canvasEl) return;
     const ctx = canvasEl.getContext('2d');
-
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    
     const year = parseInt(yearStr, 10);
     const monthIdx = parseInt(monthNumStr, 10) - 1;
     const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
@@ -818,7 +819,8 @@ function renderDonutChart(sortedCategories, totalAllowance, remainingBalance) {
     const canvasEl = document.getElementById('donutChart');
     if (!canvasEl) return;
     const ctx = canvasEl.getContext('2d');
-    
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
     let labels = [];
     let rawDataValues = []; 
     let displayDataValues = []; 
@@ -842,7 +844,7 @@ function renderDonutChart(sortedCategories, totalAllowance, remainingBalance) {
         labels.push('Remaining Budget');
         rawDataValues.push(remainingBalance);
         displayDataValues.push(remainingBalance);
-        colors.push('#ECFDF5'); 
+        colors.push(isDark ? '#1E293B' : '#ECFDF5');
     }
 
     if (donutChartInstance) {
@@ -857,7 +859,7 @@ function renderDonutChart(sortedCategories, totalAllowance, remainingBalance) {
                 data: displayDataValues,
                 backgroundColor: colors,
                 borderWidth: 2,
-                borderColor: '#ffffff',
+                borderColor: isDark ? '#111827' : '#ffffff',
                 borderRadius: 3,
                 spacing: 4,
                 hoverOffset: 4
@@ -1403,10 +1405,10 @@ function renderRecentTransactions(monthlyTx) {
 
     sortedTx.forEach(tx => {
         const div = document.createElement('div');
-        div.className = "p-3 mb-2.5 rounded-xl border border-brand-border bg-white hover:border-slate-300 transition-all flex items-center justify-between";
+        div.className = "p-3 mb-2.5 rounded-xl border border-brand-border bg-brand-card hover:bg-brand-canvas/60 transition-all flex items-center justify-between";
         div.innerHTML = `
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center text-sky-600 shrink-0">
+                <div class="w-10 h-10 rounded-xl bg-brand-canvas flex items-center justify-center text-brand-charcoal shrink-0">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
                 </div>
                 <div>
@@ -1443,6 +1445,9 @@ function applyTheme(themeName) {
             container.style.opacity = '1';
         }, 150);
     }
+    if (typeof renderApp === 'function' && rawData) {
+        renderApp();
+    }
 }
 
 function cycleTheme() {
@@ -1456,6 +1461,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedTheme = localStorage.getItem('budget_tracker_theme') || 'light';
     applyTheme(savedTheme);
 });
+
+window.addEventListener('scroll', () => {
+    const hdr = document.getElementById('appHeader');
+    if (!hdr) return;
+    hdr.classList.toggle('is-scrolled', window.scrollY > 6);
+}, { passive: true });
 
 let deferredInstallPrompt = null;
 
