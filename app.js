@@ -1,12 +1,12 @@
 const CATEGORY_COLORS = {
-    'Transit & Travel': '#0D9488',
-    'Food & Dining': '#F97316',
-    'Housing & Utilities': '#6366F1',
-    'Shopping & Lifestyle': '#8B5CF6',
-    'Healthcare & Medical': '#10B981',
-    'Entertainment & Leisure': '#F59E0B',
-    'Education & Self-Growth': '#3B82F6',
-    'Financial & Miscellaneous': '#64748B'
+    'Transit': '#0D9488',
+    'Food': '#F97316',
+    'Housing': '#6366F1',
+    'Shopping': '#8B5CF6',
+    'Health': '#10B981',
+    'Leisure': '#F59E0B',
+    'Education': '#3B82F6',
+    'Other': '#64748B'
 };
 
 let trendChartInstance = null;
@@ -280,10 +280,8 @@ async function loadData({ silentIfUnchanged = false } = {}) {
             transactions: formattedTransactions,
             allowances: allowancesMap,
             categories: dynamicCategories.length > 0 ? dynamicCategories : [
-                "Transit & Travel", "Food & Dining", "Housing & Utilities", 
-                "Shopping & Lifestyle", "Healthcare & Medical", 
-                "Entertainment & Leisure", "Education & Self-Growth", 
-                "Financial & Miscellaneous"
+                "Transit", "Food", "Housing", "Shopping",
+                "Health", "Leisure", "Education", "Other"
             ]
         };
 
@@ -806,6 +804,9 @@ function renderApp(options = { animate: true }) {
     renderRecentTransactions(monthlyTx);
 }
 
+let activeDonutIndex = null;
+let pinnedDonutIndex = null;
+
 // --- Render Donut Chart ---
 function renderDonutChart(sortedCategories, totalAllowance, remainingBalance, animate = true) {
     const canvasEl = document.getElementById('donutChart');
@@ -813,11 +814,15 @@ function renderDonutChart(sortedCategories, totalAllowance, remainingBalance, an
     const ctx = canvasEl.getContext('2d');
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
+    const centerLabelEl = document.getElementById('donutCenterLabel');
+    const centerTotalEl = document.getElementById('donutCenterTotal');
+    const centerSubEl = document.getElementById('donutCenterSub');
+
     let labels = [];
-    let rawDataValues = []; 
-    let displayDataValues = []; 
+    let rawDataValues = [];
+    let displayDataValues = [];
     let colors = [];
-    
+
     const warmPalette = ['#d9381e', '#b33912', '#8b2e0f', '#d35400', '#e67e22', '#f39c12', '#475569', '#0D9488'];
     const totalSpentVal = sortedCategories.reduce((sum, i) => sum + i.amount, 0);
 
@@ -839,6 +844,64 @@ function renderDonutChart(sortedCategories, totalAllowance, remainingBalance, an
         colors.push(isDark ? '#1E293B' : '#ECFDF5');
     }
 
+    activeDonutIndex = null;
+    pinnedDonutIndex = null;
+
+    const formatRupees = (val) => '₹' + Number(val || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+
+    function updateCenterReadout(index) {
+        if (!centerLabelEl || !centerTotalEl) return;
+
+        if (index === null || index === undefined || !labels[index]) {
+            centerLabelEl.textContent = 'TOTAL SPENT';
+            centerTotalEl.textContent = formatRupees(totalSpentVal);
+            if (centerSubEl) {
+                centerSubEl.textContent = '';
+                centerSubEl.classList.add('hidden');
+            }
+            return;
+        }
+
+        const label = labels[index];
+        const amount = rawDataValues[index] || 0;
+        const denom = totalSpentVal > 0 ? totalSpentVal : (totalAllowance > 0 ? totalAllowance : 1);
+        const pct = Math.round((amount / denom) * 100);
+
+        centerLabelEl.textContent = label;
+        centerTotalEl.textContent = `${pct}%`;
+        if (centerSubEl) {
+            centerSubEl.textContent = formatRupees(amount);
+            centerSubEl.classList.remove('hidden');
+        }
+    }
+
+    function applySliceOffsets(selectedIdx) {
+        if (!donutChartInstance) return;
+        const ds = donutChartInstance.data.datasets[0];
+        if (!ds) return;
+        // Keep base offset at 0 so the whole ring never shrinks inward;
+        // set active elements on the chart so only the hovered/pinned slice pops out.
+        ds.offset = labels.map(() => 0);
+        if (selectedIdx !== null && selectedIdx !== undefined) {
+            donutChartInstance.setActiveElements([{ datasetIndex: 0, index: selectedIdx }]);
+        } else {
+            donutChartInstance.setActiveElements([]);
+        }
+        donutChartInstance.update('none');
+        updateCenterReadout(selectedIdx);
+    }
+
+    function getHitSliceIndex(event) {
+        if (!donutChartInstance || !event) return null;
+        const hits = donutChartInstance.getElementsAtEventForMode(
+            event,
+            'nearest',
+            { intersect: true },
+            true
+        );
+        return hits && hits.length > 0 ? hits[0].index : null;
+    }
+
     if (donutChartInstance) {
         donutChartInstance.destroy();
     }
@@ -852,30 +915,75 @@ function renderDonutChart(sortedCategories, totalAllowance, remainingBalance, an
                 backgroundColor: colors,
                 borderWidth: 2,
                 borderColor: isDark ? '#111827' : '#ffffff',
-                borderRadius: 3,
+                borderRadius: 4,
                 spacing: 4,
-                hoverOffset: 4
+                offset: 0,
+                hoverOffset: 10
             }]
         },
         options: {
-            animation: animate ? undefined : false,
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '64%',
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    backgroundColor: '#0F172A',
-                    callbacks: {
-                        label: function(context) {
-                            const realValue = rawDataValues[context.dataIndex];
-                            return ` ${context.label}: ₹${realValue.toLocaleString('en-IN', {minimumFractionDigits: 2})}`;
-                        }
+            animation: animate ? { duration: 300, easing: 'easeOutCubic' } : false,
+            animations: animate
+                ? {
+                    numbers: {
+                        duration: 250,
+                        easing: 'easeOutCubic'
                     }
                 }
+                : false,
+            responsive: true,
+            maintainAspectRatio: false,
+            radius: '100%',
+            cutout: '70%', // ~3% lower than 73% adds roughly ~4px of ring thickness
+            layout: {
+                padding: 4
+            },
+            events: ['mousemove', 'mouseout', 'click', 'touchstart', 'touchend'],
+            onHover: (event, elements) => {
+                const hitIdx = elements && elements.length > 0 ? elements[0].index : null;
+                canvasEl.style.cursor = hitIdx !== null ? 'pointer' : 'default';
+
+                if (pinnedDonutIndex !== null) return;
+                if (hitIdx !== activeDonutIndex) {
+                    activeDonutIndex = hitIdx;
+                    applySliceOffsets(hitIdx);
+                }
+            },
+            onClick: (event, elements) => {
+                const clickedIdx = elements && elements.length > 0 ? elements[0].index : null;
+                if (clickedIdx === null) {
+                    pinnedDonutIndex = null;
+                    activeDonutIndex = null;
+                    applySliceOffsets(null);
+                    return;
+                }
+
+                if (pinnedDonutIndex === clickedIdx) {
+                    pinnedDonutIndex = null;
+                    activeDonutIndex = null;
+                    applySliceOffsets(null);
+                } else {
+                    pinnedDonutIndex = clickedIdx;
+                    activeDonutIndex = clickedIdx;
+                    applySliceOffsets(clickedIdx);
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: { enabled: false }
             }
         }
     });
+
+    canvasEl.onmouseleave = () => {
+        canvasEl.style.cursor = 'default';
+        if (pinnedDonutIndex === null && activeDonutIndex !== null) {
+            activeDonutIndex = null;
+            applySliceOffsets(null);
+        }
+    };
+
+    updateCenterReadout(null);
 
     const cardContainer = canvasEl.closest('.bg-white');
     if (cardContainer) {
